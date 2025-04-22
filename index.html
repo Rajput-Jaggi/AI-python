@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Meal Plan Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .meal-plan {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f0f8ff;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .day {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .day:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .day-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        .meal {
+            margin-bottom: 15px;
+        }
+        
+        .meal-title {
+            font-weight: 600;
+            color: #3498db;
+        }
+        
+        .error {
+            color: #e74c3c;
+            margin-top: 5px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Meal Plan Generator</h1>
+        
+        <div class="form-group">
+            <label for="diet-type">Diet Type</label>
+            <select id="diet-type">
+                <option value="">Select your diet type</option>
+                <option value="vegetarian">Vegetarian</option>
+                <option value="non-vegetarian">Non-Vegetarian</option>
+            </select>
+            <div id="diet-error" class="error">Please select a diet type</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="calories">Daily Calorie Target (optional)</label>
+            <input type="number" id="calories" placeholder="e.g., 2000">
+            <div id="calories-error" class="error">Please enter a valid number (between 1000-5000)</div>
+        </div>
+        
+        <div class="form-group">
+            <label for="allergies">Allergies or Restrictions (comma separated, optional)</label>
+            <input type="text" id="allergies" placeholder="e.g., nuts, dairy, gluten">
+        </div>
+        
+        <button id="generate-btn">Generate Meal Plan</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating your personalized meal plan...</p>
+        </div>
+        
+        <div class="meal-plan" id="meal-plan">
+            <h2>Your Personalized Meal Plan</h2>
+            <div id="plan-content"></div>
+            <button id="regenerate-btn">Generate Another Plan</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const generateBtn = document.getElementById('generate-btn');
+            const regenerateBtn = document.getElementById('regenerate-btn');
+            const dietType = document.getElementById('diet-type');
+            const calories = document.getElementById('calories');
+            const allergies = document.getElementById('allergies');
+            const mealPlan = document.getElementById('meal-plan');
+            const planContent = document.getElementById('plan-content');
+            const loading = document.getElementById('loading');
+            const dietError = document.getElementById('diet-error');
+            const caloriesError = document.getElementById('calories-error');
+            
+            // Sample meal data
+            const mealData = {
+                vegetarian: {
+                    breakfast: [
+                        "Avocado toast with cherry tomatoes and feta cheese",
+                        "Greek yogurt with granola and mixed berries",
+                        "Spinach and mushroom omelette with whole wheat toast",
+                        "Oatmeal with banana, walnuts, and honey",
+                        "Smoothie bowl with mango, spinach, and chia seeds"
+                    ],
+                    lunch: [
+                        "Quinoa salad with chickpeas, cucumber, and lemon-tahini dressing",
+                        "Vegetable stir-fry with tofu and brown rice",
+                        "Lentil soup with whole grain bread",
+                        "Stuffed bell peppers with rice, beans, and cheese",
+                        "Falafel wrap with hummus and tabbouleh"
+                    ],
+                    dinner: [
+                        "Eggplant parmesan with side salad",
+                        "Vegetable curry with coconut milk and basmati rice",
+                        "Zucchini noodles with pesto and cherry tomatoes",
+                        "Stuffed portobello mushrooms with quinoa and goat cheese",
+                        "Sweet potato and black bean tacos with avocado"
+                    ],
+                    snacks: [
+                        "Handful of almonds and an apple",
+                        "Carrot and celery sticks with hummus",
+                        "Dark chocolate and strawberries",
+                        "Rice cakes with almond butter",
+                        "Cottage cheese with pineapple"
+                    ]
+                },
+                "non-vegetarian": {
+                    breakfast: [
+                        "Scrambled eggs with smoked salmon and whole wheat toast",
+                        "Greek yogurt with honey and walnuts plus hard-boiled eggs",
+                        "Breakfast burrito with eggs, sausage, and cheese",
+                        "Pancakes with bacon and maple syrup",
+                        "Omelette with ham, cheese, and vegetables"
+                    ],
+                    lunch: [
+                        "Grilled chicken salad with mixed greens and balsamic vinaigrette",
+                        "Turkey and avocado wrap with sweet potato fries",
+                        "Beef and vegetable stir-fry with jasmine rice",
+                        "Tuna salad sandwich on whole grain bread",
+                        "Grilled salmon with quinoa and roasted vegetables"
+                    ],
+                    dinner: [
+                        "Herb-roasted chicken with mashed potatoes and green beans",
+                        "Grilled steak with roasted sweet potatoes and asparagus",
+                        "Baked salmon with lemon-dill sauce and wild rice",
+                        "Pork chops with apple sauce and roasted Brussels sprouts",
+                        "Shrimp scampi with linguine and garlic bread"
+                    ],
+                    snacks: [
+                        "Greek yogurt with berries",
+                        "Beef jerky and string cheese",
+                        "Hard-boiled eggs with salt and pepper",
+                        "Tuna salad with whole grain crackers",
+                        "Chicken skewers with peanut sauce"
+                    ]
+                }
+            };
+            
+            generateBtn.addEventListener('click', generateMealPlan);
+            regenerateBtn.addEventListener('click', resetForm);
+            
+            function validateInputs() {
+                let isValid = true;
+                
+                // Validate diet type
+                if (!dietType.value) {
+                    dietError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    dietError.style.display = 'none';
+                }
+                
+                // Validate calories if provided
+                if (calories.value) {
+                    const caloriesValue = parseInt(calories.value);
+                    if (isNaN(caloriesValue) || caloriesValue < 1000 || caloriesValue > 5000) {
+                        caloriesError.style.display = 'block';
+                        isValid = false;
+                    } else {
+                        caloriesError.style.display = 'none';
+                    }
+                }
+                
+                return isValid;
+            }
+            
+            function generateMealPlan() {
+                if (!validateInputs()) return;
+                
+                // Show loading indicator
+                loading.style.display = 'block';
+                mealPlan.style.display = 'none';
+                
+                // Simulate AI processing delay
+                setTimeout(() => {
+                    const selectedDiet = dietType.value;
+                    const allergyList = allergies.value ? allergies.value.split(',').map(item => item.trim().toLowerCase()) : [];
+                    
+                    // Generate 7-day meal plan
+                    let planHTML = '';
+                    for (let day = 1; day <= 7; day++) {
+                        planHTML += `
+                            <div class="day">
+                                <div class="day-title">Day ${day}</div>
+                                <div class="meal">
+                                    <div class="meal-title">Breakfast</div>
+                                    <div>${getRandomMeal(selectedDiet, 'breakfast', allergyList)}</div>
+                                </div>
+                                <div class="meal">
+                                    <div class="meal-title">Lunch</div>
+                                    <div>${getRandomMeal(selectedDiet, 'lunch', allergyList)}</div>
+                                </div>
+                                <div class="meal">
+                                    <div class="meal-title">Dinner</div>
+                                    <div>${getRandomMeal(selectedDiet, 'dinner', allergyList)}</div>
+                                </div>
+                                <div class="meal">
+                                    <div class="meal-title">Snack</div>
+                                    <div>${getRandomMeal(selectedDiet, 'snacks', allergyList)}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Add nutritional summary
+                    const calorieInfo = calories.value ? 
+                        `This plan is designed for approximately ${calories.value} calories per day. ` : 
+                        'Calorie target not specified. ';
+                    
+                    planHTML = `
+                        <p><strong>Diet Type:</strong> ${selectedDiet === 'vegetarian' ? 'Vegetarian' : 'Non-Vegetarian'}</p>
+                        <p><strong>Allergies/Restrictions:</strong> ${allergies.value || 'None'}</p>
+                        <p>${calorieInfo}Meals are balanced to include proteins, carbohydrates, and healthy fats.</p>
+                        <hr>
+                        ${planHTML}
+                    `;
+                    
+                    planContent.innerHTML = planHTML;
+                    loading.style.display = 'none';
+                    mealPlan.style.display = 'block';
+                }, 1500);
+            }
+            
+            function getRandomMeal(diet, mealType, allergies) {
+                let availableMeals = [...mealData[diet][mealType]];
+                
+                // Filter out meals that contain allergens
+                if (allergies.length > 0) {
+                    availableMeals = availableMeals.filter(meal => {
+                        const mealLower = meal.toLowerCase();
+                        return !allergies.some(allergen => mealLower.includes(allergen));
+                    });
+                    
+                    // If we filtered all options, return a safe default
+                    if (availableMeals.length === 0) {
+                        return `Custom ${mealType} (allergy-friendly)`;
+                    }
+                }
+                
+                // Select a random meal from the available options
+                const randomIndex = Math.floor(Math.random() * availableMeals.length);
+                return availableMeals[randomIndex];
+            }
+            
+            function resetForm() {
+                mealPlan.style.display = 'none';
+                dietType.value = '';
+                calories.value = '';
+                allergies.value = '';
+                dietError.style.display = 'none';
+                caloriesError.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
